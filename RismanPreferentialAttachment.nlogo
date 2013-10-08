@@ -1,283 +1,182 @@
-extensions [nw] ;;experiment network extension, available at https://github.com/NetLogo/NW-Extension
 
-breed [clanone clanones]
-breed [clantwo clantwos]
-breed [clanthree clanthrees]
- 
+directed-link-breed [friendships friendship]
 
-turtles-own
-[amphora
- friend] ;;idea being that we have an expanding world of cities that have a preference for a certain kind of artefact. Exploring trade networks formation where there are two mechanisms, pref attachement for links versus bias for similar material culture.
-
-links-own
-[age]
+breed [persons person]
+persons-own [
+  in-friends
+  out-friends
+  total-friends
+  extended-network
+  ]
 
 to setup
-  clear-all
-  crt number-of-nodes [
-    set color blue
-    let whichbreed random 3
-     if whichbreed = 0 [set breed clanone]
-     if whichbreed = 1 [set breed clantwo]
-     if whichbreed = 2 [set breed clanthree]
-    set amphora one-of shapes
-    set shape amphora
-    set size 2
-    set friend []
-    set friend fput one-of turtles friend
-    setxy 0 0
-    
-    
-  ]
-  ;layout-circle turtles (world-width / 2 - 2)
-  make-node nobody
-    make-node turtle 0
-
-      reset-ticks
-end
-
-;; This procedure demos the creation and deletion of edges.
-;; Here we create and delete edges at random, except that
-;; we try to keep the total number of links constant.
-to go
- 
- ask turtles
-   [become-familiar]
+  ;; (for this model to work with NetLogo's new plotting features,
+  ;; __clear-all-and-reset-ticks should be replaced with clear-all at
+  ;; the beginning of your setup procedure and reset-ticks at the end
+  ;; of the procedure.)
+  __clear-all-and-reset-ticks
+  create-persons number-of-people
+   ask persons [
+     move-to one-of patches
+     set shape "person"
+     set color red
+      ]
    
  
-  ifelse random 100 < social-bias
-  [ask turtles
-    [
-    link-to-friend]  
-  ]
- [
-  ifelse random 100 > bias
-  [
-  ask turtles
-       [
-  let partner one-of turtles with [ amphora = [amphora] of myself ]
-  ifelse partner != nobody and partner != self
-       [ create-link-with partner
-       ]  ;; 
-       [make-a-new-node] ;; this is a bit dodgy: metropolis, daughter colonies...
-      ]
-  ]
-  [
-  ask links [ set color gray ]
-  make-node find-partner         ;; find partner & use it as attachment
+   
+end
+
+
+
+to go
+  ifelse link-type = "directed"
+  [go-directed]
+  [go-undirected]
+end
+
+
+to go-directed
+  ask persons[
   
-  ]                               ;; point for new node
- ] 
-  tick
-  layout
-  ;resize-nodes
-end
-
-to become-familiar
-  let mybreed breed
-  let acquaintance one-of mybreed; with [breed = mybreed]
-  ask acquaintance [if breed != mybreed [stop]]
-   if acquaintance != nobody and acquaintance != self
-    [ask acquaintance
-       [set friend fput myself friend]
-    ]   
-end    
-
-
-to make-a-new-node
-  if random 100 > 50
-  [hatch 1
-  [
-    set color green
-    set amphora one-of shapes
-    set shape amphora
-    set friend []
-    become-familiar
-    set friend fput one-of turtles friend
-
+  set out-friends count out-friendship-neighbors
+  set in-friends count in-friendship-neighbors
+  let total-friend-set (turtle-set in-friendship-neighbors out-friendship-neighbors)
+  set total-friends count total-friend-set
+  let extended-network-set (turtle-set [in-friendship-neighbors] of total-friend-set 
+    [out-friendship-neighbors] of total-friend-set total-friend-set)
+  set extended-network count extended-network-set
+  wiggle
+    make-friends
+    maintain-max
+    
   ]
-  ]
+  
+
+end 
+
+
+to wiggle 
+  rt random-float 360 fd 1
 end
 
-to link-to-friend
-  let target one-of friend
-  if target != self
-  [create-link-with target]
-  make-a-new-node
-end
-
-
-to make-node [old-node]
-  crt 1
+to make-friends
+  let prospect one-of other persons-here
+  if prospect != nobody
   [
-    set color red
-    set amphora one-of shapes
-    set shape amphora
-   set friend []
-   become-familiar
-   set friend fput one-of turtles friend
-    if old-node != nobody
-      [ create-link-with old-node [ set color green ]
-        ;; position the new node near its partner
-        move-to old-node
-        fd 8
-      ]
-  ]
-end
-
-to-report find-partner
-  let total random-float sum [count link-neighbors] of turtles
-  let partner nobody
-  ask turtles
-  [
-    let nc count link-neighbors
-    ;; if there's no winner yet...
-    if partner = nobody
+    if out-friends < max-out-friends
+  [create-friendship-to prospect]
+  if out-friends = max-out-friends
+  [let worst-friend min-one-of out-friendship-neighbors [total-friends]
+    if worst-friend != nobody
     [
-      ifelse nc > total
-        [ set partner self ]
-        [ set total total - nc ]
+  if [total-friends] of prospect > [total-friends] of worst-friend
+  [ask out-friendship-to worst-friend [die] 
+    create-friendship-to prospect]]
+  ]
+  ]
+  end
+
+to maintain-max
+  let worst-out-friend min-one-of out-friendship-neighbors [total-friends]
+  let worst-in-friend min-one-of in-friendship-neighbors [total-friends]
+  if worst-out-friend != nobody
+  [
+    if out-friends > max-out-friends
+  [ask out-friendship-to worst-out-friend [die] ]
+  ]
+  if worst-in-friend != nobody  
+    [if in-friends > max-in-friends
+    [ask in-friendship-from worst-in-friend [die] ]
     ]
-  ]
-  report partner
+  
 end
+  
 
-;;;;;;;;;;;;;;
-;;; Layout ;;;
-;;;;;;;;;;;;;;
-
-;; resize-nodes, change back and forth from size based on degree to a size of 1
-to resize-nodes
-  ifelse all? turtles [size <= 1]
+to cut-doubles
+  ask turtles [ask out-friendship-neighbors
   [
-    ;; a node is a circle with diameter determined by
-    ;; the SIZE variable; using SQRT makes the circle's
-    ;; area proportional to its degree
-    ask turtles [ set size sqrt count link-neighbors ]
+    if out-friendship-neighbor? myself
+    [ask in-friendship-from myself [die]
+    ]
+  ]]
+end
+    
+to go-undirected
+  ask persons[
+  let total-friend-set link-neighbors
+  set total-friends count total-friend-set
+  let extended-network-set (turtle-set [link-neighbors] of link-neighbors 
+    total-friend-set)
+  set extended-network count extended-network-set
+  
+  wiggle
+  make-friends-undirected
+  maintain-max-undirected
   ]
-  [
-    ask turtles [ set size 1 ]
-  ]
-end
-
-to layout
-  ;; the number 3 here is arbitrary; more repetitions slows down the
-  ;; model, but too few gives poor layouts
-  repeat 3 [
-    ;; the more turtles we have to fit into the same amount of space,
-    ;; the smaller the inputs to layout-spring we'll need to use
-    let factor sqrt count turtles
-    ;; numbers here are arbitrarily chosen for pleasing appearance
-    layout-spring turtles links (1 / factor) (7 / factor) (1 / factor)
-    display  ;; for smooth animation
-  ]
-  ;; don't bump the edges of the world
-  let x-offset max [xcor] of turtles + min [xcor] of turtles
-  let y-offset max [ycor] of turtles + min [ycor] of turtles
-  ;; big jumps look funny, so only adjust a little each time
-  set x-offset limit-magnitude x-offset 0.1
-  set y-offset limit-magnitude y-offset 0.1
-  ask turtles [ setxy (xcor - x-offset / 2) (ycor - y-offset / 2) ]
-end
-
-to-report limit-magnitude [number limit]
-  if number > limit [ report limit ]
-  if number < (- limit) [ report (- limit) ]
-  report number
-end
-
-to-report mean-path-length
-  nw:set-snapshot turtles links
-  report nw:mean-path-length
-end
-
-to save-matrix
-  nw:save-matrix "matrix.txt"
-end
-
-to load-matrix
- nw:load-matrix "matrix.txt" turtles links 
-end
-
-to save-graphml
-  let y random 1000
-  let x "C:\\Users\\Shawn Graham\\Dropbox\\abm\\"
-  let z "graph.graphml"
-  let part1 word x y
-  let name word part1 z
-  nw:save-graphml name
   
 end
 
+to make-friends-undirected
+  let prospect one-of other persons-here
+  if prospect != nobody
+  [
+    if total-friends < max-total-friends
+  [create-link-with prospect]
+  if total-friends = max-total-friends
+  [let worst-friend min-one-of link-neighbors [total-friends]
+    if worst-friend != nobody
+    [
+  if [total-friends] of prospect > [total-friends] of worst-friend
+  [ask link-with worst-friend [die] 
+    create-link-with prospect]]
+  ]
+  ]
+end
 
-; Public Domain:
-; To the extent possible under law, Uri Wilensky has waived all
-; copyright and related or neighboring rights to this model.
+to maintain-max-undirected
+  let worst-friend min-one-of link-neighbors [total-friends]
+  if worst-friend != nobody
+  [
+    if total-friends > max-total-friends
+  [ask link-with worst-friend [die] ]
+  ]
+end
+  
+      
+     
 @#$#@#$#@
 GRAPHICS-WINDOW
-196
+210
 10
-616
-451
-20
-20
-10.0
+649
+470
+16
+16
+13.0
 1
 10
 1
 1
 1
 0
+1
+1
+1
+-16
+16
+-16
+16
 0
 0
-1
--20
-20
--20
-20
-1
-1
 1
 ticks
 30.0
 
 BUTTON
-86
-296
-169
-329
-go-once
-go\n
-NIL
-1
-T
-OBSERVER
-NIL
-NIL
-NIL
-NIL
-1
-
-SLIDER
-10
-40
-189
-73
-number-of-nodes
-number-of-nodes
-0
-50
-50
-1
-1
-NIL
-HORIZONTAL
-
-BUTTON
-17
-260
-94
-293
+30
+113
+96
+146
 NIL
 setup
 NIL
@@ -290,179 +189,28 @@ NIL
 NIL
 1
 
-SWITCH
-46
-344
-149
-377
-plot?
-plot?
-0
-1
--1000
-
-BUTTON
-104
-259
-170
-292
-NIL
-layout
-T
-1
-T
-OBSERVER
-NIL
-NIL
-NIL
-NIL
-1
-
-BUTTON
-17
-296
-80
-329
-go
-go\nif count turtles > (number-of-nodes * 10)\n[stop]
-T
-1
-T
-OBSERVER
-NIL
-NIL
-NIL
-NIL
-1
-
-PLOT
-676
-42
-876
-192
-Degree Distribution
-degree
-# of nodes
-1.0
-10.0
-0.0
-10.0
-true
-false
-"" ""
-PENS
-"default" 1.0 1 -16777216 true "" "if not plot? [ stop ]\nlet max-degree max [count link-neighbors] of turtles\nplot-pen-reset  ;; erase what we plotted before\nset-plot-x-range 1 (max-degree + 1)  ;; + 1 to make room for the width of the last bar\nhistogram [count link-neighbors] of turtles"
-
-PLOT
-692
-209
-892
-359
-Degree Distribution (log-log)
-log(degree)
-log(# of nodes)
-0.0
-10.0
-0.0
-10.0
-true
-false
-"" ""
-PENS
-"default" 1.0 2 -16777216 true "" "if not plot? [ stop ]\nlet max-degree max [count link-neighbors] of turtles\n;; for this plot, the axes are logarithmic, so we can't\n;; use \"histogram-from\"; we have to plot the points\n;; ourselves one at a time\nplot-pen-reset  ;; erase what we plotted before\n;; the way we create the network there is never a zero degree node,\n;; so start plotting at degree one\nlet degree 1\nwhile [degree <= max-degree] [\n  let matches turtles with [count link-neighbors = degree]\n  if any? matches\n    [ plotxy log degree 10\n             log (count matches) 10 ]\n  set degree degree + 1\n]"
-
 SLIDER
-7
-180
-188
-213
-bias
-bias
+13
+330
+185
+363
+max-out-friends
+max-out-friends
 0
 100
-48
+1
 1
 1
 NIL
 HORIZONTAL
 
-TEXTBOX
-19
-221
-184
-239
-<-shape             ->connections
-11
-0.0
-1
-
-TEXTBOX
-25
-17
-175
-35
-number of nodes to begin with
-11
-0.0
-1
-
-MONITOR
-917
-59
-1000
-104
-NIL
-count turtles
-17
-1
-11
-
-MONITOR
-937
-130
-1008
-175
-NIL
-count links
-17
-1
-11
-
-MONITOR
-929
-216
-986
-261
-NIL
-ticks
-17
-1
-11
-
-BUTTON
-832
-404
-938
-437
-NIL
-save-graphml
-NIL
-1
-T
-OBSERVER
-NIL
-NIL
-NIL
-NIL
-1
-
 SLIDER
-9
-88
+17
+286
 189
-121
-social-bias
-social-bias
+319
+number-of-people
+number-of-people
 0
 100
 100
@@ -471,33 +219,116 @@ social-bias
 NIL
 HORIZONTAL
 
-TEXTBOX
-11
-128
-187
-156
-<- least (who I know matters) -> most
-10
-0.0
+BUTTON
+29
+188
+92
+221
+NIL
+go
+T
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
 1
 
-MONITOR
-640
-446
-896
-491
-NIL
-count turtles with [count link-neighbors = 0]
+CHOOSER
 17
+19
+155
+64
+link-type
+link-type
+"directed" "undirected"
+0
+
+SLIDER
+16
+432
+188
+465
+max-total-friends
+max-total-friends
+0
+100
+3
 1
-11
+1
+NIL
+HORIZONTAL
+
+SLIDER
+13
+370
+185
+403
+max-in-friends
+max-in-friends
+0
+100
+70
+1
+1
+NIL
+HORIZONTAL
+
+BUTTON
+20
+233
+128
+266
+NIL
+cut-doubles
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
 
 @#$#@#$#@
 ## WHAT IS IT?
 
-A small population. They link first according to a social preference, and then either according to shape or to better linked individuals.
+This section could give a general understanding of what the model is trying to show or explain.
 
-Social preference is towards same clan.
+## HOW IT WORKS
+
+This section could explain what rules the agents use to create the overall behavior of the model.
+
+## HOW TO USE IT
+
+This section could explain how to use the model, including a description of each of the items in the interface tab.
+
+## THINGS TO NOTICE
+
+This section could give some ideas of things for the user to notice while running the model.
+
+## THINGS TO TRY
+
+This section could give some ideas of things for the user to try to do (move sliders, switches, etc.) with the model.
+
+## EXTENDING THE MODEL
+
+This section could give some ideas of things to add or change in the procedures tab to make the model more complicated, detailed, accurate, etc.
+
+## NETLOGO FEATURES
+
+This section could point out any especially interesting or unusual features of NetLogo that the model makes use of, particularly in the Procedures tab.  It might also point out places where workarounds were needed because of missing features.
+
+## RELATED MODELS
+
+This section could give the names of models in the NetLogo Models Library or elsewhere which are of related interest.
+
+## CREDITS AND REFERENCES
+
+This section could contain a reference to the model's URL on the web if it has one, as well as any other necessary credits or references.
 @#$#@#$#@
 default
 true
@@ -691,6 +522,15 @@ Polygon -7500403 true true 135 105 90 60 45 45 75 105 135 135
 Polygon -7500403 true true 165 105 165 135 225 105 255 45 210 60
 Polygon -7500403 true true 135 90 120 45 150 15 180 45 165 90
 
+sheep
+false
+0
+Rectangle -7500403 true true 151 225 180 285
+Rectangle -7500403 true true 47 225 75 285
+Rectangle -7500403 true true 15 75 210 225
+Circle -7500403 true true 135 75 150
+Circle -16777216 true false 165 76 116
+
 square
 false
 0
@@ -786,13 +626,36 @@ NetLogo 5.0.4
 @#$#@#$#@
 @#$#@#$#@
 @#$#@#$#@
+<experiments>
+  <experiment name="Undirected Friends Over Time" repetitions="1" runMetricsEveryStep="true">
+    <setup>setup</setup>
+    <go>go</go>
+    <timeLimit steps="2000"/>
+    <metric>[total-friends] of turtle 1</metric>
+    <enumeratedValueSet variable="max-out-friends">
+      <value value="1"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="max-total-friends">
+      <value value="5"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="link-type">
+      <value value="&quot;undirected&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="max-in-friends">
+      <value value="26"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="number-of-people">
+      <value value="25"/>
+    </enumeratedValueSet>
+  </experiment>
+</experiments>
 @#$#@#$#@
 @#$#@#$#@
 default
 0.0
--0.2 0 0.0 1.0
+-0.2 0 1.0 0.0
 0.0 1 1.0 0.0
-0.2 0 0.0 1.0
+0.2 0 1.0 0.0
 link direction
 true
 0
