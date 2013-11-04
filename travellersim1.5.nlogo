@@ -52,7 +52,7 @@ to setup
   ;; the beginning of your setup procedure and reset-ticks at the end
   ;; of the procedure.)
   __clear-all-and-reset-ticks
-   random-seed 101174   ;; this enables 'reproducibility', allows you to explore the effect of changing the sliders.
+   random-seed 10666610   ;; this enables 'reproducibility', allows you to explore the effect of changing the sliders.
                         ;; NB If you turn this off, the ids of your settlements will change with each model run.
                         ;; in which case, you'll have to compare your outputs against your master map each time
                         ;; so that you know what id refers to what settlements.
@@ -598,7 +598,7 @@ difficulty-of-communications
 difficulty-of-communications
 0.0
 4
-4
+0
 0.0010
 1
 NIL
@@ -607,12 +607,12 @@ HORIZONTAL
 CHOOSER
 3
 85
-169
+182
 130
 maps
 maps
-"greece_2.png" "testpattern-italy.png" "testpattern2-italy.png" "upper ottawa.png" "tibervalley3.png" "taiwan.png"
-0
+"greece_2.png" "testpattern-italy.png" "testpattern2-italy.png" "upper ottawa.png" "tibervalley3.png" "taiwan.png" "aegean-with-thera.png" "aegean-post-thera.png"
+6
 
 BUTTON
 749
@@ -639,8 +639,8 @@ SLIDER
 number-of-travellers-per-site
 number-of-travellers-per-site
 1
-5
-1
+20
+20
 1
 1
 NIL
@@ -709,7 +709,7 @@ BUTTON
 884
 390
 Process new  map
-;; (for this model to work with NetLogo's new plotting features,\n  ;; __clear-all-and-reset-ticks should be replaced with clear-all at\n  ;; the beginning of your setup procedure and reset-ticks at the end\n  ;; of the procedure.)\n  __clear-all-and-reset-ticks\nconvert-map
+;; (for this model to work with NetLogo's new plotting features,\n  ;; __clear-all-and-reset-ticks should be replaced with clear-all at\n  ;; the beginning of your setup procedure and reset-ticks at the end\n  ;; of the procedure.)\n\nconvert-map
 NIL
 1
 T
@@ -802,7 +802,7 @@ SWITCH
 339
 auto-resize
 auto-resize
-1
+0
 1
 -1000
 
@@ -855,13 +855,13 @@ auto-clear?
 SLIDER
 6
 466
-326
+243
 499
 average-journey-length
 average-journey-length
 0
 1.5
-0.4
+1.5
 .1
 1
 (where each .1 = 10 km)
