@@ -59,7 +59,7 @@ to go
   ifelse partner != nobody and partner != self
        [ create-link-with partner
        ]  ;; 
-       [make-a-new-node] ;; this is a bit dodgy: metropolis, daughter colonies...
+       [make-a-new-node] ;; : metropolis, daughter colonies...
       ]
   ]
   [
